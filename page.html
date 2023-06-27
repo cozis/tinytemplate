@@ -1,0 +1,13 @@
+<html>
+    <head>
+        <title>{{username}}s blog!</title>
+    </head>
+    <body>
+        <p>Hei, welcome to my blog! I'm {{name}} {{surname}} and I'm {{age}} years old!</p>
+        <ul>
+        {% for post in posts %}
+            <li>{{post.title}} - {{post.date}}</li>
+        {% end %}
+        </ul>
+    </body>
+</html>
