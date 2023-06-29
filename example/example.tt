@@ -1,0 +1,18 @@
+<html>
+    <head>
+        <title>TinyTemplate example</title>
+    </head>
+    <body>
+        <a>Hello, my name is {{name}} and my favourite fruits are:</a>
+        <ul>
+            {% for fruit in fruits %}
+            <li>{{fruit}}</li>
+            {% end %}
+        </ul>
+        {% if chocolate %}
+        <a>but I also like chocolate!</a>
+        {% else %}
+        <a>and I do NOT like chocolate!</a>
+        {% end %}
+    </body>
+</html>

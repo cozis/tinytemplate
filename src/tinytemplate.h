@@ -29,7 +29,7 @@ typedef union tinytemplate_value_t tinytemplate_value_t;
 
 typedef bool (*tinytemplate_nextcallback_t)(void*, tinytemplate_type_t*, tinytemplate_value_t*);
 typedef bool (*tinytemplate_getter_t)(void*, const char*, size_t, tinytemplate_type_t*, tinytemplate_value_t*);
-typedef void (*tinytemplate_callback_t)(void *userp, const char *str, size_t len);
+typedef void (*tinytemplate_callback_t)(void *userp, const char *lbl, size_t lblen, const char *str, size_t len);
 
 typedef struct {
     void *data;

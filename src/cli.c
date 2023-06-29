@@ -6,28 +6,30 @@
 #include "tinytemplate.h"
 
 typedef struct wrap_t wrap_t;
+typedef struct eval_context_t eval_context_t;
+
 struct wrap_t {
     eval_context_t *context;
     union {
         xj_value *value;
-        wrap_t *next;
+        wrap_t   *next;
     };
 };
 
-typedef struct {
+struct eval_context_t {
     FILE     *stream;
-    xj_value *params;
-    wrap_t *free;
-    wrap_t  pool[TINYTEMPLATE_MAX_ITER_DEPTH];
-} eval_context_t;
+    wrap_t    params;
+    wrap_t   *free;
+    wrap_t    pool[TINYTEMPLATE_MAX_ITER_DEPTH];
+};
 
 static bool query_json_array(void *data,
                              tinytemplate_type_t *type, 
                              tinytemplate_value_t *value);
 
 static bool query_json_object(void *data, const char *key, size_t len,
-                             tinytemplate_type_t *type, 
-                             tinytemplate_value_t *value);
+                              tinytemplate_type_t *type, 
+                              tinytemplate_value_t *value);
 
 static void convert_json_object(eval_context_t *context, 
                                 xj_value *child, 
@@ -58,13 +60,14 @@ static void convert_json_object(eval_context_t *context,
 
         case XJ_ARRAY:
         {
-            iter_t *iter = context->free;
+            wrap_t *wrap = context->free;
             *type = TINYTEMPLATE_TYPE_ARRAY;
-            value->as_array.data = iter;
-            value->as_array.next  = query_json_array;
-            if (iter) {
-                context->free = iter->next;
-                iter->curs = child->as_array;
+            value->as_array.data = wrap;
+            value->as_array.next = query_json_array;
+            if (wrap) {
+                context->free = wrap->next;
+                wrap->value = child->as_array;
+                wrap->context = context;
             }
             break;
         }
@@ -87,14 +90,12 @@ static bool query_json_array(void *data,
                              tinytemplate_type_t *type, 
                              tinytemplate_value_t *value)
 {
-    iter_t *iter = data;
-    
-    if (iter->curs) {
-        iter->curs = iter->curs->next;
-        if (iter->curs) {
-            convert_json_object(iter->curs, type, value);
-            return true;
-        }
+    wrap_t *wrap = data;
+
+    if (wrap->value) {
+        convert_json_object(wrap->context, wrap->value, type, value);
+        wrap->value = wrap->value->next;
+        return true;
     }
     return false;
 }
@@ -103,10 +104,11 @@ static bool query_json_object(void *data, const char *key, size_t len,
                              tinytemplate_type_t *type, 
                              tinytemplate_value_t *value)
 {
-    xj_value *json_value = data;
-    assert(json_value->type == XJ_OBJECT);
+    wrap_t *wrap = data;
+    
+    assert(wrap->value->type == XJ_OBJECT);
 
-    xj_value *child = json_value->as_object;
+    xj_value *child = wrap->value->as_object;
     while (child) {
         size_t keylen = strlen(child->key);
         if (keylen == len && !strncmp(key, child->key, len))
@@ -116,12 +118,16 @@ static bool query_json_object(void *data, const char *key, size_t len,
     if (!child)
         return false;
     
-    convert_json_object(child, type, value);
+    convert_json_object(wrap->context, child, type, value);
     return true;
 }
 
-static void callback(void *userp, const char *str, size_t len)
+static void callback(void *userp, const char *lbl, size_t lbllen, 
+                     const char *str, size_t len)
 {
+    (void) lbl;
+    (void) lbllen;
+
     eval_context_t *context = userp;
     fwrite(str, 1, len, context->stream);
 }
@@ -131,8 +137,8 @@ static bool query_root_json_object(void *data, const char *key, size_t len,
                                    tinytemplate_value_t *value)
 {
     eval_context_t *context = data;
-    if (context->params)
-        return query_json_object(context->params, key, len, type, value);
+    if (context->params.value)
+        return query_json_object(&context->params, key, len, type, value);
     else
         return false;
 }
@@ -140,9 +146,10 @@ static bool query_root_json_object(void *data, const char *key, size_t len,
 static void init_context(eval_context_t *context,
                          FILE *stream, xj_value *root)
 {
-    context->stream=stdout; 
-    context->params=root;
-    context->free = context->pool;
+    context->stream = stream;
+    context->params.context = context;
+    context->params.value = root;
+    context->free   = context->pool;
 
     for (int i = 0; i < TINYTEMPLATE_MAX_ITER_DEPTH-1; i++)
         context->pool[i].next = &context->pool[i+1];
@@ -217,7 +224,7 @@ int main(int argc, char **argv)
     } while (status == TINYTEMPLATE_STATUS_EMEMORY);
 
     eval_context_t context;
-    init_context(&context);
+    init_context(&context, stdout, root);
 
     if (tinytemplate_eval(buffer, program, &context, query_root_json_object, callback, message, sizeof(message)) != TINYTEMPLATE_STATUS_DONE) {
         fprintf(stderr, "Failed to evaluate template (%s)\n", message);

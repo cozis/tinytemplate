@@ -50,4 +50,4 @@ cat page.tt | ./tt params.json > page.html
 ```
 
 ## Internals
-TinyTemplate works by compiling a template string into a bytecode program, and then evaluating the program to generate the output. 
+TinyTemplate works by compiling a template string into a bytecode program, and then evaluating the program to generate the output. (TODO)
