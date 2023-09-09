@@ -70,17 +70,18 @@ The compilation function expects a source string of the template through `src` a
 
 Here's an example of how you would use this function:
 ```c
+#define COUNT(X) ((int) (sizeof(X) / sizeof((X)[0])))
+
 int main(void)
 {
     char message[128];
-    tinytemplate_instr_t program[32];
+    tinytemplate_instr_t prog[32];
     tinytemplate_status_t status;
 
     static const char text[] = "Hello, my name is {{name}}!";
 
     size_t num_instr;
-    size_t max_instr = sizeof(program) / sizeof(program[0]);
-    status = tinytemplate_compile(text, sizeof(text)-1, program, max_instr,
+    status = tinytemplate_compile(text, strlen(text), program, COUNT(prog),
                                   NULL, message, sizeof(message));
     if (status != TINYTEMPLATE_STATUS_DONE) {
         fprintf(stderr, "Error: %s", message);
@@ -96,18 +97,15 @@ int main(void)
 To evaluate a program you need to provide both the program and the source string of the template. Also the caller must specify two callbacks: `params` and `callback`. The `params` callback, which has the following interface:
 ```c
 bool params(void *data, const char *key, size_t len,
-            tinytemplate_type_t *type, 
             tinytemplate_value_t *value);
 ```
 provides the values of the parameters references by the template. For example if defining the parameter template as following:
 ```c
-bool params(void *data, const char *key, size_t len,
-            tinytemplate_type_t *type, 
+bool params(void *data, const char *key, size_t len, 
             tinytemplate_value_t *value)
 {
     if (len == 3 && !strncmp(key, "age", len)) {
-        *type = TINYTEMPLATE_TYPE_INT;
-        value->as_int = 24;
+        tinytemplate_set_int(value, 24);
         return true;
     }
     return false;
@@ -117,8 +115,7 @@ the value `24` will be associated to the parameter `age`. All other parameters w
 
 The other callback `callback` is used by TinyTemplate to output the result of the evaluation. Instead of evaluating the result to a buffer and then returning a single pointer, it calls this function to notify the caller that some bytes should be written to output. This function usually writes the bytes provided by the library to a caller-owned buffer. Here's an example callback that redirects the evaluation result to `stdout`
 ```c
-void callback(void *data, const char *lbl, size_t lbllen,
-              const char *str, size_t len)
+void callback(void *data, const char *str, size_t len)
 {
     fwrite(str, 1, len, stdout);
 }
