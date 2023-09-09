@@ -25,11 +25,11 @@ typedef enum {
     TINYTEMPLATE_TYPE_STRING,
 } tinytemplate_type_t;
 
-typedef union tinytemplate_value_t tinytemplate_value_t;
+typedef struct tinytemplate_value_t tinytemplate_value_t;
 
-typedef bool (*tinytemplate_nextcallback_t)(void*, tinytemplate_type_t*, tinytemplate_value_t*);
-typedef bool (*tinytemplate_getter_t)(void*, const char*, size_t, tinytemplate_type_t*, tinytemplate_value_t*);
-typedef void (*tinytemplate_callback_t)(void *userp, const char *lbl, size_t lblen, const char *str, size_t len);
+typedef bool (*tinytemplate_nextcallback_t)(void*, tinytemplate_value_t*);
+typedef bool (*tinytemplate_getter_t)(void*, const char*, size_t, tinytemplate_value_t*);
+typedef void (*tinytemplate_callback_t)(void *userp, const char *str, size_t len);
 
 typedef struct {
     void *data;
@@ -46,12 +46,17 @@ typedef struct {
     size_t len;
 } tinytemplate_string_t;
 
-union tinytemplate_value_t {
+typedef union {
     int64_t as_int;
     double  as_float;
-    tinytemplate_dict_t as_dict;
-    tinytemplate_array_t as_array;
+    tinytemplate_dict_t   as_dict;
+    tinytemplate_array_t  as_array;
     tinytemplate_string_t as_string;
+} tinytemplate_union_t;
+
+struct tinytemplate_value_t {
+    tinytemplate_type_t  type;
+    tinytemplate_union_t data;
 };
 
 typedef struct {
@@ -86,4 +91,11 @@ tinytemplate_compile(const char *src, size_t len,
                      tinytemplate_instr_t *program,
                      size_t max_instr, size_t *num_instr,
                      char *errmsg, size_t errmax);
+
+void tinytemplate_set_int(tinytemplate_value_t *dst, int64_t value);
+void tinytemplate_set_float(tinytemplate_value_t *dst, float value);
+void tinytemplate_set_string(tinytemplate_value_t *dst, const char *str, size_t len);
+void tinytemplate_set_array(tinytemplate_value_t *dst, void *data, tinytemplate_nextcallback_t next);
+void tinytemplate_set_dict(tinytemplate_value_t *dst, void *data, tinytemplate_getter_t get);
+
 #endif

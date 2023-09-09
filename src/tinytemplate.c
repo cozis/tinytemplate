@@ -73,7 +73,6 @@ typedef enum {
     OPCODE_NEXT,
     OPCODE_CHLD,
     OPCODE_IDX,
-    OPCODE_BLOCK,
 } opcode_t;
 
 // Represents a substring of the template
@@ -86,7 +85,6 @@ typedef enum {
     SCOPE_IF,
     SCOPE_IF_ELSE,
     SCOPE_FOR,
-    SCOPE_BLOCK,
 } scope_type_t;
 
 typedef struct {
@@ -99,7 +97,6 @@ typedef struct {
     slice_t for_child_label;
     slice_t for_index_label;
 
-    slice_t block_name;
 } scope_t;
 
 typedef struct {
@@ -140,7 +137,6 @@ typedef enum {
     TOKEN_KWORD_FOR,
     TOKEN_KWORD_ELSE,
     TOKEN_KWORD_END,
-    TOKEN_KWORD_BLOCK,
     TOKEN_OPER_MOD,
 } token_t;
 
@@ -198,7 +194,6 @@ append_instr(compile_state_t *state,
         case OPCODE_GETS:
         case OPCODE_PUSHV:
         case OPCODE_PUSHS: 
-        case OPCODE_BLOCK:
         instr->operands[0].as_size = va_arg(operands, size_t); 
         instr->operands[1].as_size = va_arg(operands, size_t); 
         break;
@@ -255,11 +250,58 @@ static bool is_printable(char c)
         && (unsigned char) c <= 126;
 }
 
+static bool
+follows_digit(scanner_t *s)
+{
+    return s->cur < s->len && is_digit(s->src[s->cur]);
+}
+
+static bool
+follows_alpha(scanner_t *s)
+{
+    return s->cur < s->len && is_alpha(s->src[s->cur]);
+}
+
+static bool
+follows_space(scanner_t *s)
+{
+    return s->cur < s->len && is_space(s->src[s->cur]);
+}
+
+static bool 
+follows_char(scanner_t *s, char c)
+{
+    return s->cur < s->len && s->src[s->cur] == c;
+}
+
+static bool 
+follows_pair(scanner_t *s, char pair[static 2])
+{
+    return s->cur+1 < s->len 
+        && s->src[s->cur+0] == pair[0] 
+        && s->src[s->cur+1] == pair[1];
+}
+
+static bool 
+consume_pair(scanner_t *s, char pair[static 2])
+{
+    bool ok = follows_pair(s, pair);
+    if (ok) s->cur += 2;
+    return ok;
+}
+
+static void 
+consume_spaces(scanner_t *s)
+{
+    while (follows_space(s))
+        s->cur++;
+}
+
 static token_t 
 next_token_int(scanner_t *scanner, slice_t *slice,
                token_payload_t *payload)
 {
-    assert(scanner->cur < scanner->len && is_digit(scanner->src[scanner->cur]));
+    assert(follows_digit(scanner));
     
     size_t offset = scanner->cur;
     
@@ -272,7 +314,7 @@ next_token_int(scanner_t *scanner, slice_t *slice,
             break;
         }
         buf = buf * 10 + d;
-    } while (scanner->cur < scanner->len && is_digit(scanner->src[scanner->cur]));
+    } while (follows_digit(scanner));
 
     if (slice) {
         slice->offset = offset;
@@ -291,7 +333,7 @@ next_token_float(scanner_t *scanner, slice_t *slice,
     // The caller made sure that follows a float:
     // a string of digits followed by a dot and
     // another string of digits.
-    assert(scanner->cur < scanner->len && is_digit(scanner->src[scanner->cur]));
+    assert(follows_digit(scanner));
 
     size_t offset = scanner->cur;
 
@@ -308,7 +350,7 @@ next_token_float(scanner_t *scanner, slice_t *slice,
         q /= 10;
         int d = scanner->src[scanner->cur++] - '0';
         buf += d * q;
-    } while (scanner->cur < scanner->len && is_digit(scanner->src[scanner->cur]));
+    } while (follows_digit(scanner));
 
     if (slice) {
         slice->offset = offset;
@@ -325,7 +367,7 @@ next_token_numeric(scanner_t *scanner, slice_t *slice,
                    token_payload_t *payload)
 {
     // Scanner points to a digit
-    assert(scanner->cur < scanner->len && is_digit(scanner->src[scanner->cur]));
+    assert(follows_digit(scanner));
 
     // Is it a float or an int? Check if at the end
     // of the first sequence of digit there's a dot
@@ -346,12 +388,12 @@ next_token_kword_or_ident(scanner_t *scanner, slice_t *slice,
 {
     (void) payload;
 
-    assert(scanner->cur < scanner->len && is_alpha(scanner->src[scanner->cur]));
+    assert(follows_alpha(scanner));
 
     size_t offset = scanner->cur;
     do
         scanner->cur++;
-    while (scanner->cur < scanner->len && is_alpha(scanner->src[scanner->cur]));
+    while (follows_alpha(scanner));
     size_t length = scanner->cur - offset;
 
     if (slice) {
@@ -380,11 +422,6 @@ next_token_kword_or_ident(scanner_t *scanner, slice_t *slice,
         if (!strncmp(scanner->src + offset, "else", length))
             return TOKEN_KWORD_ELSE;
         break;
-
-        case 5: // block
-        if (!strncmp(scanner->src + offset, "block", length))
-            return TOKEN_KWORD_BLOCK;
-        break;
     }
 
     return TOKEN_IDENT;
@@ -394,8 +431,7 @@ static token_t
 next_token(scanner_t *scanner, slice_t *slice,
            token_payload_t *payload)
 {
-    while (scanner->cur < scanner->len && is_space(scanner->src[scanner->cur]))
-        scanner->cur++;
+    consume_spaces(scanner);
 
     if (scanner->cur == scanner->len) {
         if (slice) {
@@ -709,11 +745,7 @@ expr_block(scanner_t *scanner,
     append_instr(state, OPCODE_WRTOP);
     append_instr(state, OPCODE_POP, 1);
 
-    if (scanner->cur+1 < scanner->len 
-        && scanner->src[scanner->cur+0] == '}' 
-        && scanner->src[scanner->cur+1] == '}')
-        scanner->cur += 2;
-    else {
+    if (!consume_pair(scanner, "}}")) {
         report(error, "No closing [}}] after expression block");
         return ESYNTAX;
     }
@@ -726,12 +758,8 @@ close_construct(scanner_t *scanner,
                 const char *block_name)
 {
     // Consume the following "%}"
-
-    while (scanner->cur < scanner->len && is_space(scanner->src[scanner->cur]))
-        scanner->cur++;
-    if (scanner->cur+1 < scanner->len && scanner->src[scanner->cur] == '%' && scanner->src[scanner->cur+1] == '}')
-        scanner->cur += 2;
-    else {
+    consume_spaces(scanner);
+    if (!consume_pair(scanner, "%}")) {
         report(error, "Missing closing %%} in {%% %s %%} block", block_name);
         return ESYNTAX;
     }
@@ -824,41 +852,6 @@ iteration_construct_start(scanner_t *scanner,
     return DONE;
 }
 
-static status_t
-block_construct_start(scanner_t *scanner,
-                      compile_state_t *state,
-                      error_t *error)
-{
-    // This function is called after "{% block" is parsed
-    assert(scanner->src[scanner->cur-5] == 'b' 
-        && scanner->src[scanner->cur-4] == 'l'
-        && scanner->src[scanner->cur-3] == 'o'
-        && scanner->src[scanner->cur-2] == 'c'
-        && scanner->src[scanner->cur-1] == 'k');
-
-    if (state->scope_depth == TINYTEMPLATE_MAX_SCOPE_DEPTH) {
-        report(error, "Scope depth limit reached");
-        return ESCOPE;
-    }
-
-    slice_t label;
-    if (next_token(scanner, &label, NULL) != TOKEN_IDENT) {
-        report(error, "Missing block label");
-        return ESYNTAX;
-    }
-
-    append_instr(state, OPCODE_BLOCK, label.offset, label.length);
-
-    tinytemplate_status_t status;
-    if ((status = close_construct(scanner, error, "block")) != DONE)
-        return status;
-
-    state->scope_stack[state->scope_depth].type = SCOPE_BLOCK;
-    state->scope_stack[state->scope_depth].block_name = label;
-    state->scope_depth++;
-    return DONE;
-}
-
 static void
 resolve_scope(compile_state_t *state)
 {
@@ -888,17 +881,6 @@ resolve_scope(compile_state_t *state)
         instr = state->program + scope->if_jump;
         instr->operands[0].as_size = state->num_instr;
         break;
-
-        case SCOPE_BLOCK:
-        {
-            // Get parent block name
-            slice_t parent_label = {0, 0};
-            for (int i = state->scope_depth-2; i >= 0; i--)
-                if (state->scope_stack[i].type == SCOPE_BLOCK)
-                    parent_label = state->scope_stack[i].block_name;
-            append_instr(state, OPCODE_BLOCK, parent_label.offset, parent_label.length);
-            break;
-        }
     }
 
     state->scope_depth--;
@@ -958,10 +940,6 @@ construct_else(scanner_t *scanner,
         case SCOPE_FOR:
         report(error, "Bad {%% else %%} coupled with {%% for .. %%}");
         return ESEMANT;
-
-        case SCOPE_BLOCK:
-        report(error, "Bad {%% else %%} coupled with {%% block .. %%}");
-        return ESEMANT;
     }
 
     return DONE;
@@ -980,7 +958,6 @@ control_flow_block(scanner_t *scanner,
         case TOKEN_KWORD_FOR:  return iteration_construct_start(scanner, state, error);
         case TOKEN_KWORD_END:  return construct_end(scanner, state, error);
         case TOKEN_KWORD_ELSE: return construct_else(scanner, state, error);
-        case TOKEN_KWORD_BLOCK: return block_construct_start(scanner, state, error);
         default:
         report(error, "Bad token [%.*s] after [{%%]", 
                (int) slice.length, scanner->src + slice.offset);
@@ -1024,7 +1001,7 @@ tinytemplate_compile(const char *src, size_t len,
         size_t raw_off = scanner.cur; // Start offset of the raw block
         while (scanner.cur < scanner.len) {
             // Look for a "{" or the end
-            while (scanner.cur < scanner.len && scanner.src[scanner.cur] != '{')
+            while (follows_char(&scanner, '{'))
                 scanner.cur++;
 
             // If the end wasn't reached (a "{" was found)
@@ -1076,15 +1053,15 @@ tinytemplate_compile(const char *src, size_t len,
 
 static bool
 value_can_be_considered_true(tinytemplate_type_t type, 
-                             tinytemplate_value_t value)
+                             tinytemplate_union_t data)
 {
     switch (type) {
 
         case TINYTEMPLATE_TYPE_INT:
-        return value.as_int != 0;
+        return data.as_int != 0;
 
         case TINYTEMPLATE_TYPE_FLOAT:
-        return value.as_float != 0;
+        return data.as_float != 0;
 
         default:
         return false;
@@ -1094,14 +1071,14 @@ value_can_be_considered_true(tinytemplate_type_t type,
 typedef struct {
     tinytemplate_array_t iter;
     tinytemplate_value_t child;
-    tinytemplate_type_t  ctype;
     size_t next_index;
 } iter_state_t;
 
 status_t 
-tinytemplate_eval(const char *src, const instr_t *program, void *userp, 
-                  tinytemplate_getter_t params,
-                  tinytemplate_callback_t callback, char *errmsg, size_t errmax)
+tinytemplate_eval(const char *src, const instr_t *program, 
+                  void *userp, tinytemplate_getter_t params,
+                  tinytemplate_callback_t callback, 
+                  char *errmsg, size_t errmax)
 {
     error_t error = {.dst=errmsg, .max=errmax};
 
@@ -1109,11 +1086,9 @@ tinytemplate_eval(const char *src, const instr_t *program, void *userp,
     size_t       iter_depth = 0;
 
     tinytemplate_type_t  types[TINYTEMPLATE_MAX_EXPR_DEPTH];
-    tinytemplate_value_t stack[TINYTEMPLATE_MAX_EXPR_DEPTH];
+    tinytemplate_union_t stack[TINYTEMPLATE_MAX_EXPR_DEPTH];
     size_t stack_depth = 0;
-
-    slice_t label = {0, 0};
-
+    
     bool done = false;
     int index = 0;
     while (!done) {
@@ -1126,13 +1101,6 @@ tinytemplate_eval(const char *src, const instr_t *program, void *userp,
             
             case OPCODE_DONE: 
             done = true; 
-            break;
-
-            case OPCODE_BLOCK: 
-            label = (slice_t) {
-                .offset = instr->operands[0].as_size,
-                .length = instr->operands[1].as_size,
-            };
             break;
 
             case OPCODE_ITER:
@@ -1157,12 +1125,9 @@ tinytemplate_eval(const char *src, const instr_t *program, void *userp,
                                         // be run outside of an iteration.
 
                 iter_state_t *top_iter = &iter_stack[iter_depth-1];
-                
-                tinytemplate_type_t type;
                 tinytemplate_value_t value;
-                if (top_iter->iter.next(top_iter->iter.data, &type, &value)) {
+                if (top_iter->iter.next(top_iter->iter.data, &value)) {
                     top_iter->child = value;
-                    top_iter->ctype = type;
                     top_iter->next_index++;
                 } else {
                     index = instr->operands[0].as_size;
@@ -1191,8 +1156,8 @@ tinytemplate_eval(const char *src, const instr_t *program, void *userp,
                 assert(iter->next_index > 0); // CHLD can only be executed after
                                               // the iteration started.
 
-                stack[stack_depth] = iter->child;
-                types[stack_depth] = iter->ctype;
+                stack[stack_depth] = iter->child.data;
+                types[stack_depth] = iter->child.type;
                 stack_depth++;
                 break;
             }
@@ -1237,14 +1202,13 @@ tinytemplate_eval(const char *src, const instr_t *program, void *userp,
     
                 size_t offset = instr->operands[0].as_size;
                 size_t length = instr->operands[1].as_size;
-                tinytemplate_type_t type;
                 tinytemplate_value_t value;
-                if (!stack[stack_depth-1].as_dict.get(stack[stack_depth-1].as_dict.data, src + offset, length, &type, &value)) {
+                if (!stack[stack_depth-1].as_dict.get(stack[stack_depth-1].as_dict.data, src + offset, length, &value)) {
                     report(&error, "Key %.*s not in dict", (int) length, src + offset);
                     return ESYMBOL;
                 }
-                types[stack_depth-1] = type;
-                stack[stack_depth-1] = value;
+                types[stack_depth-1] = value.type;
+                stack[stack_depth-1] = value.data;
                 break;
             }
 
@@ -1279,11 +1243,10 @@ tinytemplate_eval(const char *src, const instr_t *program, void *userp,
                 size_t varname_offset = instr->operands[0].as_size;
                 size_t varname_length = instr->operands[1].as_size;
 
-                tinytemplate_type_t type;
                 tinytemplate_value_t value;
-                if (params(userp, src + varname_offset, varname_length, &type, &value)) {
-                    types[stack_depth] = type;
-                    stack[stack_depth] = value;
+                if (params(userp, src + varname_offset, varname_length, &value)) {
+                    types[stack_depth] = value.type;
+                    stack[stack_depth] = value.data;
                     stack_depth++;
                 } else {
                     report(&error, "Undefined variable [%.*s]", 
@@ -1310,8 +1273,7 @@ tinytemplate_eval(const char *src, const instr_t *program, void *userp,
             {
                 size_t offset = instr->operands[0].as_size;
                 size_t length = instr->operands[1].as_size;
-                callback(userp, src + label.offset, label.length,
-                         src + offset, length); 
+                callback(userp, src + offset, length); 
                 break;
             }
 
@@ -1326,8 +1288,7 @@ tinytemplate_eval(const char *src, const instr_t *program, void *userp,
                         char text[128];
                         int num = snprintf(text, sizeof(text), "%lld", stack[stack_depth-1].as_int);
                         assert(num > 0);
-                        callback(userp, src + label.offset, label.length,
-                                 text, (size_t) num);
+                        callback(userp, text, (size_t) num);
                         break;
                     }
 
@@ -1336,15 +1297,12 @@ tinytemplate_eval(const char *src, const instr_t *program, void *userp,
                         char text[128];
                         int num = snprintf(text, sizeof(text), "%lf", stack[stack_depth-1].as_float); 
                         assert(num > 0);
-                        callback(userp, src + label.offset, label.length, 
-                                 text, (size_t) num);
+                        callback(userp, text, (size_t) num);
                         break;
                     }
 
                     case TINYTEMPLATE_TYPE_STRING:
-                    callback(userp, src + label.offset, label.length,
-                             stack[stack_depth-1].as_string.str,
-                             stack[stack_depth-1].as_string.len);
+                    callback(userp, stack[stack_depth-1].as_string.str, stack[stack_depth-1].as_string.len);
                     break;
 
                     default:
@@ -1358,7 +1316,7 @@ tinytemplate_eval(const char *src, const instr_t *program, void *userp,
             assert(stack_depth > 0);
             stack_depth--;
             break;
-        
+            
             // This will be useful from here on
             #define PAIR(x, y) ((unsigned char) (x) | ((unsigned char) (y) << 8))
 
@@ -1671,4 +1629,37 @@ tinytemplate_eval(const char *src, const instr_t *program, void *userp,
         }
     }
     return DONE;
+}
+
+void tinytemplate_set_int(tinytemplate_value_t *dst, int64_t value)
+{
+    dst->type = TINYTEMPLATE_TYPE_INT;
+    dst->data.as_int = value;
+}
+
+void tinytemplate_set_float(tinytemplate_value_t *dst, float value)
+{
+    dst->type = TINYTEMPLATE_TYPE_FLOAT;
+    dst->data.as_float = value;
+}
+
+void tinytemplate_set_string(tinytemplate_value_t *dst, const char *str, size_t len)
+{
+    dst->type = TINYTEMPLATE_TYPE_STRING;
+    dst->data.as_string.str = str;
+    dst->data.as_string.len = len;
+}
+
+void tinytemplate_set_array(tinytemplate_value_t *dst, void *data, tinytemplate_nextcallback_t next)
+{
+    dst->type = TINYTEMPLATE_TYPE_ARRAY;
+    dst->data.as_array.data = data;
+    dst->data.as_array.next = next;
+}
+
+void tinytemplate_set_dict(tinytemplate_value_t *dst, void *data, tinytemplate_getter_t get)
+{
+    dst->type = TINYTEMPLATE_TYPE_DICT;
+    dst->data.as_dict.data = data;
+    dst->data.as_dict.get  = get;
 }

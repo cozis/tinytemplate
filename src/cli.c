@@ -23,47 +23,27 @@ struct eval_context_t {
     wrap_t    pool[TINYTEMPLATE_MAX_ITER_DEPTH];
 };
 
-static bool query_json_array(void *data,
-                             tinytemplate_type_t *type, 
-                             tinytemplate_value_t *value);
+static bool query_json_array(void *data, tinytemplate_value_t *value);
 
 static bool query_json_object(void *data, const char *key, size_t len,
-                              tinytemplate_type_t *type, 
                               tinytemplate_value_t *value);
 
-static void convert_json_object(eval_context_t *context, 
-                                xj_value *child, 
-                                tinytemplate_type_t *type, 
+static void convert_json_object(eval_context_t *context, xj_value *child, 
                                 tinytemplate_value_t *value)
 {
     switch (child->type) {
 
-        case XJ_NULL:
-        *type = TINYTEMPLATE_TYPE_INT;
-        value->as_int = 0;
-        break;
-        
-        case XJ_INT:
-        *type = TINYTEMPLATE_TYPE_INT;
-        value->as_int = child->as_int;
-        break;
-        
-        case XJ_FLOAT:
-        *type = TINYTEMPLATE_TYPE_INT;
-        value->as_float = child->as_float;
-        break;
-        
-        case XJ_BOOL:
-        *type = TINYTEMPLATE_TYPE_INT;
-        value->as_int = child->as_bool;
-        break;
+        case XJ_NULL : tinytemplate_set_int(value, 0); break;
+        case XJ_INT  : tinytemplate_set_int(value, child->as_int); break;
+        case XJ_FLOAT: tinytemplate_set_float(value, child->as_float); break;
+        case XJ_BOOL : tinytemplate_set_int(value, child->as_bool); break;
+        case XJ_OBJECT: tinytemplate_set_dict(value, child, query_json_object); break;
+        case XJ_STRING: tinytemplate_set_string(value, child->as_string, child->size); break;
 
         case XJ_ARRAY:
         {
             wrap_t *wrap = context->free;
-            *type = TINYTEMPLATE_TYPE_ARRAY;
-            value->as_array.data = wrap;
-            value->as_array.next = query_json_array;
+            tinytemplate_set_array(value, wrap, query_json_array);
             if (wrap) {
                 context->free = wrap->next;
                 wrap->value = child->as_array;
@@ -71,29 +51,15 @@ static void convert_json_object(eval_context_t *context,
             }
             break;
         }
-
-        case XJ_OBJECT:
-        *type = TINYTEMPLATE_TYPE_DICT;
-        value->as_dict.data = child;
-        value->as_dict.get  = query_json_object;
-        break;
-
-        case XJ_STRING: 
-        *type = TINYTEMPLATE_TYPE_STRING;
-        value->as_string.str = child->as_string;
-        value->as_string.len = child->size;
-        break;
     }
 }
 
-static bool query_json_array(void *data, 
-                             tinytemplate_type_t *type, 
-                             tinytemplate_value_t *value)
+static bool query_json_array(void *data, tinytemplate_value_t *value)
 {
     wrap_t *wrap = data;
 
     if (wrap->value) {
-        convert_json_object(wrap->context, wrap->value, type, value);
+        convert_json_object(wrap->context, wrap->value, value);
         wrap->value = wrap->value->next;
         return true;
     }
@@ -101,8 +67,7 @@ static bool query_json_array(void *data,
 }
 
 static bool query_json_object(void *data, const char *key, size_t len,
-                             tinytemplate_type_t *type, 
-                             tinytemplate_value_t *value)
+                              tinytemplate_value_t *value)
 {
     wrap_t *wrap = data;
     
@@ -118,27 +83,22 @@ static bool query_json_object(void *data, const char *key, size_t len,
     if (!child)
         return false;
     
-    convert_json_object(wrap->context, child, type, value);
+    convert_json_object(wrap->context, child, value);
     return true;
 }
 
-static void callback(void *userp, const char *lbl, size_t lbllen, 
-                     const char *str, size_t len)
+static void callback(void *userp, const char *str, size_t len)
 {
-    (void) lbl;
-    (void) lbllen;
-
     eval_context_t *context = userp;
     fwrite(str, 1, len, context->stream);
 }
 
 static bool query_root_json_object(void *data, const char *key, size_t len,
-                                   tinytemplate_type_t *type, 
                                    tinytemplate_value_t *value)
 {
     eval_context_t *context = data;
     if (context->params.value)
-        return query_json_object(&context->params, key, len, type, value);
+        return query_json_object(&context->params, key, len, value);
     else
         return false;
 }
