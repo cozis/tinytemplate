@@ -178,6 +178,7 @@ append_instr(compile_state_t *state,
         case OPCODE_ITER:
         case OPCODE_CHLD:
         case OPCODE_IDX:
+        instr->operands[0].as_size = va_arg(operands, size_t); 
         break;
 
         case OPCODE_NEXT:
@@ -388,12 +389,12 @@ next_token_kword_or_ident(scanner_t *scanner, slice_t *slice,
 {
     (void) payload;
 
-    assert(follows_alpha(scanner));
+    assert(follows_alpha(scanner) || follows_char(scanner, '_'));
 
     size_t offset = scanner->cur;
     do
         scanner->cur++;
-    while (follows_alpha(scanner));
+    while (follows_alpha(scanner) || follows_char(scanner, '_'));
     size_t length = scanner->cur - offset;
 
     if (slice) {
@@ -553,7 +554,7 @@ parse_primary(scanner_t *scanner,
 
                     // Check if the label matches the iteration label
                     if (slice.length == scope->for_child_label.length && !memcmp(scanner->src + slice.offset, scanner->src + scope->for_child_label.offset, slice.length)) {
-                        append_instr(state, OPCODE_CHLD, slice.offset, slice.length);
+                        append_instr(state, OPCODE_CHLD, j);
                         found = true;
                         break;
                     }
@@ -563,7 +564,7 @@ parse_primary(scanner_t *scanner,
                     // its length will be 0 and the expression's
                     // label won't match.
                     if (slice.length == scope->for_index_label.length && !memcmp(scanner->src + slice.offset, scanner->src + scope->for_index_label.offset, slice.length)) {
-                        append_instr(state, OPCODE_IDX, slice.offset, slice.length);
+                        append_instr(state, OPCODE_IDX, j);
                         found = true;
                         break;
                     }
@@ -1001,7 +1002,7 @@ tinytemplate_compile(const char *src, size_t len,
         size_t raw_off = scanner.cur; // Start offset of the raw block
         while (scanner.cur < scanner.len) {
             // Look for a "{" or the end
-            while (follows_char(&scanner, '{'))
+            while (scanner.cur < scanner.len && !follows_char(&scanner, '{'))
                 scanner.cur++;
 
             // If the end wasn't reached (a "{" was found)
@@ -1147,7 +1148,7 @@ tinytemplate_eval(const char *src, const instr_t *program,
 
                 assert(iter_depth > 0); // The CHLD instruction can't
                                         // be run outside of an iteration.
-
+                
                 assert(iter_idx < iter_depth); // The index of the iteration must
                                                // refer to one of the active ones.
 

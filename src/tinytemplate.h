@@ -42,8 +42,7 @@ typedef struct {
 } tinytemplate_array_t;
 
 typedef struct {
-    const char *str;
-    size_t len;
+    const char *str; size_t len;
 } tinytemplate_string_t;
 
 typedef union {
