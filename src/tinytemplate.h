@@ -93,6 +93,7 @@ tinytemplate_compile(const char *src, size_t len,
 
 void tinytemplate_set_int(tinytemplate_value_t *dst, int64_t value);
 void tinytemplate_set_float(tinytemplate_value_t *dst, float value);
+void tinytemplate_set_double(tinytemplate_value_t *dst, double value);
 void tinytemplate_set_string(tinytemplate_value_t *dst, const char *str, size_t len);
 void tinytemplate_set_array(tinytemplate_value_t *dst, void *data, tinytemplate_nextcallback_t next);
 void tinytemplate_set_dict(tinytemplate_value_t *dst, void *data, tinytemplate_getter_t get);
