@@ -1296,7 +1296,7 @@ tinytemplate_eval(const char *src, const instr_t *program,
                     case TINYTEMPLATE_TYPE_FLOAT: 
                     {
                         char text[128];
-                        int num = snprintf(text, sizeof(text), "%lf", stack[stack_depth-1].as_float); 
+                        int num = snprintf(text, sizeof(text), "%.17g", stack[stack_depth-1].as_float); 
                         assert(num > 0);
                         callback(userp, text, (size_t) num);
                         break;
@@ -1639,6 +1639,12 @@ void tinytemplate_set_int(tinytemplate_value_t *dst, int64_t value)
 }
 
 void tinytemplate_set_float(tinytemplate_value_t *dst, float value)
+{
+    dst->type = TINYTEMPLATE_TYPE_FLOAT;
+    dst->data.as_float = value;
+}
+
+void tinytemplate_set_double(tinytemplate_value_t *dst, double value)
 {
     dst->type = TINYTEMPLATE_TYPE_FLOAT;
     dst->data.as_float = value;
