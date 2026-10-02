@@ -81,8 +81,8 @@ int main(void)
     static const char text[] = "Hello, my name is {{name}}!";
 
     size_t num_instr;
-    status = tinytemplate_compile(text, strlen(text), program, COUNT(prog),
-                                  NULL, message, sizeof(message));
+    status = tinytemplate_compile(text, strlen(text), prog, COUNT(prog),
+                                  &num_instr, message, sizeof(message));
     if (status != TINYTEMPLATE_STATUS_DONE) {
         fprintf(stderr, "Error: %s", message);
         return -1;
