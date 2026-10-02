@@ -6,8 +6,8 @@
 
 /* Configurations */
 
-// When enabled, the compiler dumps the location of 
-// the calls to [next_token] and [peek_token] to 
+// When enabled, the compiler dumps the location of
+// the calls to [next_token] and [peek_token] to
 // stderr. This is very useful when debugging.
 //
 // #define TINYTEMPLATE_TRACE_TOKENS
@@ -92,7 +92,7 @@ typedef struct {
 
     size_t if_jcnd;
     size_t if_jump;
-    
+
     size_t  for_next;
     slice_t for_child_label;
     slice_t for_index_label;
@@ -155,8 +155,8 @@ static void report(error_t *error, const char *fmt, ...)
     }
 }
 
-static void 
-append_instr(compile_state_t *state, 
+static void
+append_instr(compile_state_t *state,
              opcode_t opcode, ...)
 {
     if (state->failed)
@@ -174,15 +174,15 @@ append_instr(compile_state_t *state,
 
     instr->opcode = opcode;
     switch (opcode) {
-        
+
         case OPCODE_ITER:
         case OPCODE_CHLD:
         case OPCODE_IDX:
-        instr->operands[0].as_size = va_arg(operands, size_t); 
+        instr->operands[0].as_size = va_arg(operands, size_t);
         break;
 
         case OPCODE_NEXT:
-        instr->operands[0].as_size = va_arg(operands, size_t); 
+        instr->operands[0].as_size = va_arg(operands, size_t);
         break;
 
         case OPCODE_NOPE:
@@ -191,22 +191,22 @@ append_instr(compile_state_t *state,
 
         case OPCODE_PUSHI: instr->operands[0].as_int   = va_arg(operands, int64_t); break;
         case OPCODE_PUSHF: instr->operands[0].as_float = va_arg(operands, double);  break;
-        
+
         case OPCODE_GETS:
         case OPCODE_PUSHV:
-        case OPCODE_PUSHS: 
-        instr->operands[0].as_size = va_arg(operands, size_t); 
-        instr->operands[1].as_size = va_arg(operands, size_t); 
+        case OPCODE_PUSHS:
+        instr->operands[0].as_size = va_arg(operands, size_t);
+        instr->operands[1].as_size = va_arg(operands, size_t);
         break;
 
         case OPCODE_JUMP:
         case OPCODE_JCND:
         instr->operands[0].as_size = va_arg(operands, size_t);
         break;
-        
+
         case OPCODE_WRITE:
-        instr->operands[0].as_size = va_arg(operands, size_t); 
-        instr->operands[1].as_size = va_arg(operands, size_t); 
+        instr->operands[0].as_size = va_arg(operands, size_t);
+        instr->operands[1].as_size = va_arg(operands, size_t);
         break;
 
         case OPCODE_WRTOP:
@@ -225,7 +225,7 @@ append_instr(compile_state_t *state,
 
 static bool is_alpha(char c)
 {
-    return (c >= 'a' && c <= 'z') 
+    return (c >= 'a' && c <= 'z')
         || (c >= 'A' && c <= 'Z');
 }
 
@@ -269,21 +269,21 @@ follows_space(scanner_t *s)
     return s->cur < s->len && is_space(s->src[s->cur]);
 }
 
-static bool 
+static bool
 follows_char(scanner_t *s, char c)
 {
     return s->cur < s->len && s->src[s->cur] == c;
 }
 
-static bool 
+static bool
 follows_pair(scanner_t *s, char pair[2])
 {
-    return s->cur+1 < s->len 
-        && s->src[s->cur+0] == pair[0] 
+    return s->cur+1 < s->len
+        && s->src[s->cur+0] == pair[0]
         && s->src[s->cur+1] == pair[1];
 }
 
-static bool 
+static bool
 consume_pair(scanner_t *s, char pair[2])
 {
     bool ok = follows_pair(s, pair);
@@ -291,21 +291,21 @@ consume_pair(scanner_t *s, char pair[2])
     return ok;
 }
 
-static void 
+static void
 consume_spaces(scanner_t *s)
 {
     while (follows_space(s))
         s->cur++;
 }
 
-static token_t 
+static token_t
 next_token_int(scanner_t *scanner, slice_t *slice,
                token_payload_t *payload)
 {
     assert(follows_digit(scanner));
-    
+
     size_t offset = scanner->cur;
-    
+
     int64_t buf = 0;
     do {
         int d = scanner->src[scanner->cur++] - '0';
@@ -327,7 +327,7 @@ next_token_int(scanner_t *scanner, slice_t *slice,
     return TOKEN_VALUE_INT;
 }
 
-static token_t 
+static token_t
 next_token_float(scanner_t *scanner, slice_t *slice,
                  token_payload_t *payload)
 {
@@ -363,7 +363,7 @@ next_token_float(scanner_t *scanner, slice_t *slice,
     return TOKEN_VALUE_FLOAT;
 }
 
-static token_t 
+static token_t
 next_token_numeric(scanner_t *scanner, slice_t *slice,
                    token_payload_t *payload)
 {
@@ -428,7 +428,7 @@ next_token_kword_or_ident(scanner_t *scanner, slice_t *slice,
     return TOKEN_IDENT;
 }
 
-static token_t 
+static token_t
 next_token(scanner_t *scanner, slice_t *slice,
            token_payload_t *payload)
 {
@@ -449,7 +449,7 @@ next_token(scanner_t *scanner, slice_t *slice,
 
     if (is_alpha(c))
         return next_token_kword_or_ident(scanner, slice, payload);
-    
+
     if (!is_ascii(c)) {
         size_t offset = scanner->cur;
         do
@@ -483,8 +483,8 @@ next_token(scanner_t *scanner, slice_t *slice,
     return (token_t) c;
 }
 
-static token_t 
-peek_token(scanner_t *scanner, 
+static token_t
+peek_token(scanner_t *scanner,
            slice_t *slice,
            token_payload_t *payload)
 {
@@ -495,8 +495,8 @@ peek_token(scanner_t *scanner,
 }
 
 #ifdef TINYTEMPLATE_TRACE_TOKENS
-static token_t 
-trace_next_token(const char *c_func, const char *c_file, 
+static token_t
+trace_next_token(const char *c_func, const char *c_file,
                  int c_line, scanner_t *scanner, slice_t *slice,
                  token_payload_t *payload)
 {
@@ -504,14 +504,14 @@ trace_next_token(const char *c_func, const char *c_file,
     if (slice == NULL)
         slice = &maybe;
     token_t token = next_token(scanner, slice, payload);
-    fprintf(stderr, "NEXT TOKEN [%.*s] @ %s in %s:%d\n", 
-            (int) slice->length, scanner->src + slice->offset, 
+    fprintf(stderr, "NEXT TOKEN [%.*s] @ %s in %s:%d\n",
+            (int) slice->length, scanner->src + slice->offset,
             c_func, c_file, c_line);
     return token;
 }
 
-static token_t 
-trace_peek_token(const char *c_func, const char *c_file, 
+static token_t
+trace_peek_token(const char *c_func, const char *c_file,
                  int c_line, scanner_t *scanner, slice_t *slice,
                  token_payload_t *payload)
 {
@@ -519,8 +519,8 @@ trace_peek_token(const char *c_func, const char *c_file,
     if (slice == NULL)
         slice = &maybe;
     token_t token = peek_token(scanner, slice, payload);
-    fprintf(stderr, "PEEK TOKEN [%.*s] @ %s in %s:%d\n", 
-            (int) slice->length, scanner->src + slice->offset, 
+    fprintf(stderr, "PEEK TOKEN [%.*s] @ %s in %s:%d\n",
+            (int) slice->length, scanner->src + slice->offset,
             c_func, c_file, c_line);
     return token;
 }
@@ -529,7 +529,7 @@ trace_peek_token(const char *c_func, const char *c_file,
 #endif
 
 static status_t
-parse_primary(scanner_t *scanner, 
+parse_primary(scanner_t *scanner,
               compile_state_t *state,
               error_t *error)
 {
@@ -538,7 +538,7 @@ parse_primary(scanner_t *scanner,
     token_t token = next_token(scanner, &slice, &payload);
 
     switch (token) {
-        
+
         case TOKEN_VALUE_INT:   append_instr(state, OPCODE_PUSHI, payload.as_int);   break;
         case TOKEN_VALUE_FLOAT: append_instr(state, OPCODE_PUSHF, payload.as_float); break;
         case TOKEN_IDENT:
@@ -559,7 +559,7 @@ parse_primary(scanner_t *scanner,
                         break;
                     }
 
-                    // Check if the label matches the index label. 
+                    // Check if the label matches the index label.
                     // If no iteration label was specified, then
                     // its length will be 0 and the expression's
                     // label won't match.
@@ -571,7 +571,7 @@ parse_primary(scanner_t *scanner,
                     j++;
                 }
             }
-            
+
             if (!found)
                 // Label doesn't refer to an iteration
                 append_instr(state, OPCODE_PUSHV, slice.offset, slice.length);
@@ -579,7 +579,7 @@ parse_primary(scanner_t *scanner,
         }
 
         default:
-        report(error, "Bad token [%.*s] in primary expression", 
+        report(error, "Bad token [%.*s] in primary expression",
                (int) slice.length, scanner->src + slice.offset);
         return ESYNTAX;
     }
@@ -602,7 +602,7 @@ parse_suffix(scanner_t *scanner,
 
         // Offset of the dot token
         size_t checkpoint = scanner->cur;
-        
+
         // Consume the dot
         next_token(scanner, NULL, NULL);
 
@@ -636,7 +636,7 @@ parse_prefix(scanner_t *scanner,
     return parse_suffix(scanner, state, error);
 }
 
-static int 
+static int
 precedence_of(token_t token)
 {
     switch (token) {
@@ -650,37 +650,37 @@ precedence_of(token_t token)
     return 0;
 }
 
-static bool 
+static bool
 is_binary_operator(token_t token)
 {
     return precedence_of(token) > 0;
 }
 
-static bool 
+static bool
 is_right_associative(token_t token)
 {
     (void) token;
     return false;
 }
 
-static bool 
-can_continue_climbing(scanner_t *scanner, 
+static bool
+can_continue_climbing(scanner_t *scanner,
                       int min_precedence)
 {
     token_t peek = peek_token(scanner, NULL, NULL);
     return is_binary_operator(peek) && precedence_of(peek) >= min_precedence;
 }
 
-static bool 
-should_associate_right(scanner_t *scanner, 
+static bool
+should_associate_right(scanner_t *scanner,
                        token_t oper, token_t *peek)
 {
     *peek = peek_token(scanner, NULL, NULL);
-    return is_binary_operator(*peek) 
+    return is_binary_operator(*peek)
         && (precedence_of(*peek) > precedence_of(oper) || (precedence_of(*peek) == precedence_of(oper) && is_right_associative(*peek)));
 }
 
-static opcode_t 
+static opcode_t
 operator_opcode(token_t token)
 {
     switch (token) {
@@ -696,7 +696,7 @@ operator_opcode(token_t token)
 }
 
 static status_t
-parse_expr_2(scanner_t *scanner, 
+parse_expr_2(scanner_t *scanner,
              compile_state_t *state,
              int min_precedence,
              error_t *error)
@@ -704,7 +704,7 @@ parse_expr_2(scanner_t *scanner,
     status_t status;
 
     while (can_continue_climbing(scanner, min_precedence)) {
-        
+
         token_t oper = next_token(scanner, NULL, NULL);
         if ((status = parse_prefix(scanner, state, error)) != DONE)
             return status;
@@ -721,8 +721,8 @@ parse_expr_2(scanner_t *scanner,
     return DONE;
 }
 
-static bool 
-parse_expr(scanner_t *scanner, 
+static bool
+parse_expr(scanner_t *scanner,
            compile_state_t *state,
            error_t *error)
 {
@@ -733,12 +733,12 @@ parse_expr(scanner_t *scanner,
 }
 
 static status_t
-expr_block(scanner_t *scanner, 
+expr_block(scanner_t *scanner,
            compile_state_t *state,
            error_t *error)
 {
     scanner->cur += 2; // Skip the "{{"
-    
+
     status_t status = parse_expr(scanner, state, error);
     if (status != DONE)
         return status;
@@ -775,7 +775,7 @@ selection_construct_start(scanner_t *scanner,
     status_t status;
 
     // This function is called after "{% if" is parsed
-    assert(scanner->src[scanner->cur-2] == 'i' 
+    assert(scanner->src[scanner->cur-2] == 'i'
         && scanner->src[scanner->cur-1] == 'f');
 
     if (state->scope_depth == TINYTEMPLATE_MAX_SCOPE_DEPTH) {
@@ -788,10 +788,10 @@ selection_construct_start(scanner_t *scanner,
 
     if ((status = close_construct(scanner, error, "if")) != DONE)
         return status;
-    
+
     size_t if_jcnd = state->num_instr;
     append_instr(state, OPCODE_JCND, 0);
-    
+
     state->scope_stack[state->scope_depth].type = SCOPE_IF;
     state->scope_stack[state->scope_depth].if_jcnd = if_jcnd;
     state->scope_depth++;
@@ -804,7 +804,7 @@ iteration_construct_start(scanner_t *scanner,
                           error_t *error)
 {
     // This function is called after "{% for" is parsed
-    assert(scanner->src[scanner->cur-3] == 'f' 
+    assert(scanner->src[scanner->cur-3] == 'f'
         && scanner->src[scanner->cur-2] == 'o'
         && scanner->src[scanner->cur-1] == 'r');
 
@@ -837,7 +837,7 @@ iteration_construct_start(scanner_t *scanner,
     status_t status;
     if ((status = parse_expr(scanner, state, error)) != DONE)
         return status;
-    
+
     append_instr(state, OPCODE_ITER);
     size_t for_next = state->num_instr;
     append_instr(state, OPCODE_NEXT, 0);
@@ -858,11 +858,11 @@ resolve_scope(compile_state_t *state)
 {
     assert(state->scope_depth > 0);
 
-    scope_t *scope = state->scope_stack 
+    scope_t *scope = state->scope_stack
                    + state->scope_depth-1;
 
     switch (scope->type) {
-        
+
         // Useful for all cases but it changes
         // meaning for each one.
         tinytemplate_instr_t *instr;
@@ -919,11 +919,11 @@ construct_else(scanner_t *scanner,
     if (status != DONE)
         return status;
 
-    scope_t *scope = state->scope_stack 
+    scope_t *scope = state->scope_stack
                    + state->scope_depth - 1;
 
     switch (scope->type) {
-    
+
         tinytemplate_instr_t *instr;
 
         case SCOPE_IF:
@@ -947,7 +947,7 @@ construct_else(scanner_t *scanner,
 }
 
 static status_t
-control_flow_block(scanner_t *scanner, 
+control_flow_block(scanner_t *scanner,
                    compile_state_t *state,
                    error_t *error)
 {
@@ -960,15 +960,15 @@ control_flow_block(scanner_t *scanner,
         case TOKEN_KWORD_END:  return construct_end(scanner, state, error);
         case TOKEN_KWORD_ELSE: return construct_else(scanner, state, error);
         default:
-        report(error, "Bad token [%.*s] after [{%%]", 
+        report(error, "Bad token [%.*s] after [{%%]",
                (int) slice.length, scanner->src + slice.offset);
         return ESYNTAX;
     }
     return DONE;
 }
 
-status_t 
-tinytemplate_compile(const char *src, size_t len, 
+status_t
+tinytemplate_compile(const char *src, size_t len,
                      instr_t *program, size_t max_instr,
                      size_t *num_instr, char *errmsg,
                      size_t errmax)
@@ -979,15 +979,15 @@ tinytemplate_compile(const char *src, size_t len,
     };
 
     scanner_t scanner = {
-        .src=src, 
-        .len=len, 
+        .src=src,
+        .len=len,
         .cur=0
     };
-    
+
     compile_state_t state = {
-        .program=program, 
-        .max_instr=max_instr, 
-        .num_instr=0, 
+        .program=program,
+        .max_instr=max_instr,
+        .num_instr=0,
         .failed=false
     };
 
@@ -1053,7 +1053,7 @@ tinytemplate_compile(const char *src, size_t len,
 }
 
 static bool
-value_can_be_considered_true(tinytemplate_type_t type, 
+value_can_be_considered_true(tinytemplate_type_t type,
                              tinytemplate_union_t data)
 {
     switch (type) {
@@ -1075,10 +1075,10 @@ typedef struct {
     size_t next_index;
 } iter_state_t;
 
-status_t 
-tinytemplate_eval(const char *src, const instr_t *program, 
+status_t
+tinytemplate_eval(const char *src, const instr_t *program,
                   void *userp, tinytemplate_getter_t params,
-                  tinytemplate_callback_t callback, 
+                  tinytemplate_callback_t callback,
                   char *errmsg, size_t errmax)
 {
     error_t error = {.dst=errmsg, .max=errmax};
@@ -1089,19 +1089,19 @@ tinytemplate_eval(const char *src, const instr_t *program,
     tinytemplate_type_t  types[TINYTEMPLATE_MAX_EXPR_DEPTH];
     tinytemplate_union_t stack[TINYTEMPLATE_MAX_EXPR_DEPTH];
     size_t stack_depth = 0;
-    
+
     bool done = false;
     int index = 0;
     while (!done) {
         const tinytemplate_instr_t *instr = &program[index++];
         switch (instr->opcode) {
-            
-            case OPCODE_NOPE: 
-            /* Do nothing */ 
+
+            case OPCODE_NOPE:
+            /* Do nothing */
             break;
-            
-            case OPCODE_DONE: 
-            done = true; 
+
+            case OPCODE_DONE:
+            done = true;
             break;
 
             case OPCODE_ITER:
@@ -1148,7 +1148,7 @@ tinytemplate_eval(const char *src, const instr_t *program,
 
                 assert(iter_depth > 0); // The CHLD instruction can't
                                         // be run outside of an iteration.
-                
+
                 assert(iter_idx < iter_depth); // The index of the iteration must
                                                // refer to one of the active ones.
 
@@ -1200,7 +1200,7 @@ tinytemplate_eval(const char *src, const instr_t *program,
                     report(&error, "Access by string on non-dict value");
                     return ETYPE;
                 }
-    
+
                 size_t offset = instr->operands[0].as_size;
                 size_t length = instr->operands[1].as_size;
                 tinytemplate_value_t value;
@@ -1213,7 +1213,7 @@ tinytemplate_eval(const char *src, const instr_t *program,
                 break;
             }
 
-            case OPCODE_PUSHI: 
+            case OPCODE_PUSHI:
             if (stack_depth == TINYTEMPLATE_MAX_EXPR_DEPTH) {
                 report(&error, "Evaluation stack limit reached");
                 return EDEPTH;
@@ -1222,8 +1222,8 @@ tinytemplate_eval(const char *src, const instr_t *program,
             stack[stack_depth].as_int = instr->operands[0].as_int;
             stack_depth++;
             break;
-            
-            case OPCODE_PUSHF: 
+
+            case OPCODE_PUSHF:
             if (stack_depth == TINYTEMPLATE_MAX_EXPR_DEPTH) {
                 report(&error, "Evaluation stack limit reached");
                 return EDEPTH;
@@ -1232,9 +1232,9 @@ tinytemplate_eval(const char *src, const instr_t *program,
             stack[stack_depth].as_float = instr->operands[0].as_float;
             stack_depth++;
             break;
-            
+
             case OPCODE_PUSHS: NOT_IMPLEMENTED_YET; break;
-            
+
             case OPCODE_PUSHV:
             {
                 if (stack_depth == TINYTEMPLATE_MAX_EXPR_DEPTH) {
@@ -1250,7 +1250,7 @@ tinytemplate_eval(const char *src, const instr_t *program,
                     stack[stack_depth] = value.data;
                     stack_depth++;
                 } else {
-                    report(&error, "Undefined variable [%.*s]", 
+                    report(&error, "Undefined variable [%.*s]",
                            (int) varname_length, src + varname_offset);
                     return ESYMBOL;
                 }
@@ -1260,7 +1260,7 @@ tinytemplate_eval(const char *src, const instr_t *program,
             case OPCODE_JUMP:
             index = (int) instr->operands[0].as_size;
             break;
-            
+
             case OPCODE_JCND:
             assert(stack_depth > 0); // JCND jumps if the top of the
                                      // stack is true, so the stack
@@ -1269,12 +1269,12 @@ tinytemplate_eval(const char *src, const instr_t *program,
                 index = (int) instr->operands[0].as_size;
             stack_depth--;
             break;
-            
-            case OPCODE_WRITE: 
+
+            case OPCODE_WRITE:
             {
                 size_t offset = instr->operands[0].as_size;
                 size_t length = instr->operands[1].as_size;
-                callback(userp, src + offset, length); 
+                callback(userp, src + offset, length);
                 break;
             }
 
@@ -1293,10 +1293,10 @@ tinytemplate_eval(const char *src, const instr_t *program,
                         break;
                     }
 
-                    case TINYTEMPLATE_TYPE_FLOAT: 
+                    case TINYTEMPLATE_TYPE_FLOAT:
                     {
                         char text[128];
-                        int num = snprintf(text, sizeof(text), "%.17g", stack[stack_depth-1].as_float); 
+                        int num = snprintf(text, sizeof(text), "%.17g", stack[stack_depth-1].as_float);
                         assert(num > 0);
                         callback(userp, text, (size_t) num);
                         break;
@@ -1312,12 +1312,12 @@ tinytemplate_eval(const char *src, const instr_t *program,
                 }
                 break;
             }
-            
+
             case OPCODE_POP:
             assert(stack_depth > 0);
             stack_depth--;
             break;
-            
+
             // This will be useful from here on
             #define PAIR(x, y) ((unsigned char) (x) | ((unsigned char) (y) << 8))
 
@@ -1326,11 +1326,11 @@ tinytemplate_eval(const char *src, const instr_t *program,
                 assert(stack_depth > 0);
 
                 switch (types[stack_depth-1]) {
-                    
+
                     case TINYTEMPLATE_TYPE_INT:
                     stack[stack_depth-1].as_int = -stack[stack_depth-1].as_int;
                     break;
-                    
+
                     case TINYTEMPLATE_TYPE_FLOAT:
                     stack[stack_depth-1].as_float = -stack[stack_depth-1].as_float;
                     break;
@@ -1347,9 +1347,9 @@ tinytemplate_eval(const char *src, const instr_t *program,
                 assert(stack_depth >= 2);
 
                 switch PAIR(types[stack_depth-2], types[stack_depth-1]) {
-                
-                    case PAIR(TINYTEMPLATE_TYPE_INT, 
-                              TINYTEMPLATE_TYPE_INT): 
+
+                    case PAIR(TINYTEMPLATE_TYPE_INT,
+                              TINYTEMPLATE_TYPE_INT):
                     {
                         int64_t op1 = stack[stack_depth-2].as_int;
                         int64_t op2 = stack[stack_depth-1].as_int;
@@ -1361,7 +1361,7 @@ tinytemplate_eval(const char *src, const instr_t *program,
                         break;
                     }
 
-                    case PAIR(TINYTEMPLATE_TYPE_INT, 
+                    case PAIR(TINYTEMPLATE_TYPE_INT,
                               TINYTEMPLATE_TYPE_FLOAT):
                     {
                         int64_t op1 = stack[stack_depth-2].as_int;
@@ -1374,7 +1374,7 @@ tinytemplate_eval(const char *src, const instr_t *program,
                         break;
                     }
 
-                    case PAIR(TINYTEMPLATE_TYPE_FLOAT, 
+                    case PAIR(TINYTEMPLATE_TYPE_FLOAT,
                               TINYTEMPLATE_TYPE_INT):
                     {
                         double op1 = stack[stack_depth-2].as_float;
@@ -1387,7 +1387,7 @@ tinytemplate_eval(const char *src, const instr_t *program,
                         break;
                     }
 
-                    case PAIR(TINYTEMPLATE_TYPE_FLOAT, 
+                    case PAIR(TINYTEMPLATE_TYPE_FLOAT,
                               TINYTEMPLATE_TYPE_FLOAT):
                     {
                         double op1 = stack[stack_depth-2].as_float;
@@ -1412,9 +1412,9 @@ tinytemplate_eval(const char *src, const instr_t *program,
                 assert(stack_depth >= 2);
 
                 switch PAIR(types[stack_depth-2], types[stack_depth-1]) {
-                
-                    case PAIR(TINYTEMPLATE_TYPE_INT, 
-                              TINYTEMPLATE_TYPE_INT): 
+
+                    case PAIR(TINYTEMPLATE_TYPE_INT,
+                              TINYTEMPLATE_TYPE_INT):
                     {
                         int64_t op1 = stack[stack_depth-2].as_int;
                         int64_t op2 = stack[stack_depth-1].as_int;
@@ -1426,7 +1426,7 @@ tinytemplate_eval(const char *src, const instr_t *program,
                         break;
                     }
 
-                    case PAIR(TINYTEMPLATE_TYPE_INT, 
+                    case PAIR(TINYTEMPLATE_TYPE_INT,
                               TINYTEMPLATE_TYPE_FLOAT):
                     {
                         int64_t op1 = stack[stack_depth-2].as_int;
@@ -1439,7 +1439,7 @@ tinytemplate_eval(const char *src, const instr_t *program,
                         break;
                     }
 
-                    case PAIR(TINYTEMPLATE_TYPE_FLOAT, 
+                    case PAIR(TINYTEMPLATE_TYPE_FLOAT,
                               TINYTEMPLATE_TYPE_INT):
                     {
                         double op1 = stack[stack_depth-2].as_float;
@@ -1452,7 +1452,7 @@ tinytemplate_eval(const char *src, const instr_t *program,
                         break;
                     }
 
-                    case PAIR(TINYTEMPLATE_TYPE_FLOAT, 
+                    case PAIR(TINYTEMPLATE_TYPE_FLOAT,
                               TINYTEMPLATE_TYPE_FLOAT):
                     {
                         double op1 = stack[stack_depth-2].as_float;
@@ -1477,9 +1477,9 @@ tinytemplate_eval(const char *src, const instr_t *program,
                 assert(stack_depth >= 2);
 
                 switch PAIR(types[stack_depth-2], types[stack_depth-1]) {
-                
-                    case PAIR(TINYTEMPLATE_TYPE_INT, 
-                              TINYTEMPLATE_TYPE_INT): 
+
+                    case PAIR(TINYTEMPLATE_TYPE_INT,
+                              TINYTEMPLATE_TYPE_INT):
                     {
                         int64_t op1 = stack[stack_depth-2].as_int;
                         int64_t op2 = stack[stack_depth-1].as_int;
@@ -1491,7 +1491,7 @@ tinytemplate_eval(const char *src, const instr_t *program,
                         break;
                     }
 
-                    case PAIR(TINYTEMPLATE_TYPE_INT, 
+                    case PAIR(TINYTEMPLATE_TYPE_INT,
                               TINYTEMPLATE_TYPE_FLOAT):
                     {
                         int64_t op1 = stack[stack_depth-2].as_int;
@@ -1504,7 +1504,7 @@ tinytemplate_eval(const char *src, const instr_t *program,
                         break;
                     }
 
-                    case PAIR(TINYTEMPLATE_TYPE_FLOAT, 
+                    case PAIR(TINYTEMPLATE_TYPE_FLOAT,
                               TINYTEMPLATE_TYPE_INT):
                     {
                         double op1 = stack[stack_depth-2].as_float;
@@ -1517,7 +1517,7 @@ tinytemplate_eval(const char *src, const instr_t *program,
                         break;
                     }
 
-                    case PAIR(TINYTEMPLATE_TYPE_FLOAT, 
+                    case PAIR(TINYTEMPLATE_TYPE_FLOAT,
                               TINYTEMPLATE_TYPE_FLOAT):
                     {
                         double op1 = stack[stack_depth-2].as_float;
@@ -1542,9 +1542,9 @@ tinytemplate_eval(const char *src, const instr_t *program,
                 assert(stack_depth >= 2);
 
                 switch PAIR(types[stack_depth-2], types[stack_depth-1]) {
-                
-                    case PAIR(TINYTEMPLATE_TYPE_INT, 
-                              TINYTEMPLATE_TYPE_INT): 
+
+                    case PAIR(TINYTEMPLATE_TYPE_INT,
+                              TINYTEMPLATE_TYPE_INT):
                     {
                         int64_t op1 = stack[stack_depth-2].as_int;
                         int64_t op2 = stack[stack_depth-1].as_int;
@@ -1556,7 +1556,7 @@ tinytemplate_eval(const char *src, const instr_t *program,
                         break;
                     }
 
-                    case PAIR(TINYTEMPLATE_TYPE_INT, 
+                    case PAIR(TINYTEMPLATE_TYPE_INT,
                               TINYTEMPLATE_TYPE_FLOAT):
                     {
                         int64_t op1 = stack[stack_depth-2].as_int;
@@ -1569,7 +1569,7 @@ tinytemplate_eval(const char *src, const instr_t *program,
                         break;
                     }
 
-                    case PAIR(TINYTEMPLATE_TYPE_FLOAT,  
+                    case PAIR(TINYTEMPLATE_TYPE_FLOAT,
                               TINYTEMPLATE_TYPE_INT):
                     {
                         double op1 = stack[stack_depth-2].as_float;
@@ -1582,7 +1582,7 @@ tinytemplate_eval(const char *src, const instr_t *program,
                         break;
                     }
 
-                    case PAIR(TINYTEMPLATE_TYPE_FLOAT, 
+                    case PAIR(TINYTEMPLATE_TYPE_FLOAT,
                               TINYTEMPLATE_TYPE_FLOAT):
                     {
                         double op1 = stack[stack_depth-2].as_float;
@@ -1607,9 +1607,9 @@ tinytemplate_eval(const char *src, const instr_t *program,
                 assert(stack_depth >= 2);
 
                 switch PAIR(types[stack_depth-2], types[stack_depth-1]) {
-                
-                    case PAIR(TINYTEMPLATE_TYPE_INT, 
-                              TINYTEMPLATE_TYPE_INT): 
+
+                    case PAIR(TINYTEMPLATE_TYPE_INT,
+                              TINYTEMPLATE_TYPE_INT):
                     {
                         int64_t op1 = stack[stack_depth-2].as_int;
                         int64_t op2 = stack[stack_depth-1].as_int;

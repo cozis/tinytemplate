@@ -79,14 +79,14 @@ typedef enum {
     TINYTEMPLATE_STATUS_ESEMANT,
 } tinytemplate_status_t;
 
-tinytemplate_status_t 
-tinytemplate_eval(const char *src, const tinytemplate_instr_t *program, 
+tinytemplate_status_t
+tinytemplate_eval(const char *src, const tinytemplate_instr_t *program,
                   void *userp, tinytemplate_getter_t params,
                   tinytemplate_callback_t callback,
                   char *errmsg, size_t errmax);
 
-tinytemplate_status_t 
-tinytemplate_compile(const char *src, size_t len, 
+tinytemplate_status_t
+tinytemplate_compile(const char *src, size_t len,
                      tinytemplate_instr_t *program,
                      size_t max_instr, size_t *num_instr,
                      char *errmsg, size_t errmax);
