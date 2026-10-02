@@ -598,7 +598,7 @@ parse_suffix(scanner_t *scanner,
         return status;
 
     token_t suffix = peek_token(scanner, NULL, NULL);
-    if (suffix == '.') {
+    while (suffix == '.') {
 
         // Offset of the dot token
         size_t checkpoint = scanner->cur;
@@ -612,6 +612,8 @@ parse_suffix(scanner_t *scanner,
             append_instr(state, OPCODE_GETS, slice.offset, slice.length);
         else
             scanner->cur = checkpoint;
+
+        suffix = peek_token(scanner, NULL, NULL);
     }
     return DONE;
 }
